@@ -1,12 +1,6 @@
 import argparse
 from typing import Any
 
-try:
-    from vertexai.preview.generative_models import Image
-    from llms import generate_from_gemini_completion
-except:
-    print('Google Cloud not set up, skipping import of vertexai.preview.generative_models.Image and llms.generate_from_gemini_completion')
-
 from llms import (
     generate_from_huggingface_completion,
     generate_from_openai_chat_completion,
@@ -59,6 +53,9 @@ def call_llm(
             max_new_tokens=lm_config.gen_config["max_new_tokens"],
         )
     elif lm_config.provider == "google":
+        from vertexai.preview.generative_models import Image
+        from llms.providers.gemini_utils import generate_from_gemini_completion
+
         assert isinstance(prompt, list)
         assert all(
             [isinstance(p, str) or isinstance(p, Image) for p in prompt]
