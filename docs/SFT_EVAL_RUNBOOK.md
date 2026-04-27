@@ -20,8 +20,11 @@ Replace these before running commands:
 - `<SFT_MODEL_ROUTE>`: SFT model route in `model#deployment` format
 - `<EVAL_MODEL_NAME>`: evaluator model (example: `gpt-5`)
 
-Example `SFT_MODEL_ROUTE` format:
-`accounts/<ACCOUNT>/models/<MODEL_NAME>#accounts/<ACCOUNT>/deployments/<DEPLOYMENT_ID>`
+Model route formats:
+- Base model:
+  `accounts/<ACCOUNT>/models/<BASE_MODEL_NAME>`
+- Addon/SFT model:
+  `accounts/<ACCOUNT>/models/<MODEL_NAME>#accounts/<ACCOUNT>/deployments/<DEPLOYMENT_ID>`
 
 ## 2) Browser Instance Setup (`<BROWSER_HOST>`)
 

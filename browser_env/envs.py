@@ -136,19 +136,45 @@ class ScriptBrowserEnv(Env[dict[str, Observation], Action]):
             self.observation_handler.get_observation_space()
         )
 
+        # Playwright sync API must not be torn down and re-entered on every reset()
+        # (second+ task); reuse one sync_playwright + browser and only recreate contexts.
+        self.context_manager: Any = None
+        self.playwright: Any = None
+        self.browser: Any = None
+        self.context: Any = None
+        self.page: Any = None
+        self._playwright_browser_ready = False
+
+    def _close_browser_context_only(self) -> None:
+        """Close the current BrowserContext without stopping sync_playwright."""
+        if self.context is None:
+            return
+        if self.save_trace_enabled:
+            try:
+                self.context.tracing.stop()
+            except Exception:
+                pass
+        self.context.close()
+        self.context = None
+
     @beartype
     def setup(self, config_file: Path | None = None) -> None:
-        self.context_manager = sync_playwright()
-        self.playwright = self.context_manager.__enter__()
-        self.browser = self.playwright.chromium.launch(
-            headless=self.headless, slow_mo=self.slow_mo
-        )
-
         if config_file:
             with open(config_file, "r") as f:
                 instance_config = json.load(f)
         else:
             instance_config = {}
+
+        if self._playwright_browser_ready:
+            self._close_browser_context_only()
+
+        if not self._playwright_browser_ready:
+            self.context_manager = sync_playwright()
+            self.playwright = self.context_manager.__enter__()
+            self.browser = self.playwright.chromium.launch(
+                headless=self.headless, slow_mo=self.slow_mo
+            )
+            self._playwright_browser_ready = True
 
         # Reset site if needed. Currently only supported for Classifieds.
         # TODO(jykoh): Add reset functionality for Shopping/Reddit.
@@ -237,8 +263,6 @@ class ScriptBrowserEnv(Env[dict[str, Observation], Action]):
             - "storage_state": the storage state of the browser. It is a file path to a json file.
         """
         super().reset(seed=seed, options=options)
-        if self.reset_finished:
-            self.context_manager.__exit__()
 
         if options is not None and "config_file" in options:
             config_file = Path(options["config_file"])
@@ -268,7 +292,10 @@ class ScriptBrowserEnv(Env[dict[str, Observation], Action]):
 
     def close(self) -> None:
         if self.reset_finished:
-            self.context_manager.__exit__()
+            self._close_browser_context_only()
+        if self._playwright_browser_ready and self.context_manager is not None:
+            self.context_manager.__exit__(None, None, None)
+            self._playwright_browser_ready = False
 
     def step(
         self, action: Action
